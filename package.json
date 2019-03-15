@@ -1,0 +1,54 @@
+{
+  "name": "queues-spike",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": "10.15.3",
+    "yarn": "1.13.0"
+  },
+  "dependencies": {
+    "@types/node": "^10.10.0",
+    "@types/raven": "^2.5.0",
+    "amqplib": "^0.5.0",
+    "dotenv": "^6.2.0",
+    "ts-node": "^8.0.0",
+    "typescript": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.5.0",
+    "@types/jest": "^24.0.0",
+    "jest": "^24.1.0",
+    "pre-push": "^0.1.0",
+    "ts-jest": "^24.0.0",
+    "tslint": "^5.13.0",
+    "tslint-config-airbnb": "^5.11.0"
+  },
+  "resolutions": {
+    "jest/**/lodash": "^4.17.11",
+    "jest/**/merge": "^1.2.1"
+  },
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "test": "jest",
+    "lint": "tslint --project tsconfig.json",
+    "build": "tsc",
+    "postinstall": "yarn build"
+  },
+  "pre-push": [
+    "lint",
+    "test"
+  ],
+  "jest": {
+    "moduleFileExtensions": [
+      "ts",
+      "js"
+    ],
+    "rootDir": "src/",
+    "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    }
+  }
+}
