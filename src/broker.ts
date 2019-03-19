@@ -4,8 +4,12 @@ export interface MessageData {
     [propName: string]: any;
 }
 
-export interface QueueTask {
-    (data: MessageData): Promise<void>;
+export interface MessagePublisher {
+    (exchangeName: string, routingKey: string, message: MessageData): void;
+}
+
+export interface QueueHandler {
+    (data: MessageData, context: MessagePublisher): Promise<void>;
 }
 
 export const connect = async (brokerUrl: string): Promise<amqplib.Connection> => amqplib.connect(brokerUrl);
@@ -13,7 +17,7 @@ export const connect = async (brokerUrl: string): Promise<amqplib.Connection> =>
 export const createChannel = async (connection: amqplib.Connection): Promise<amqplib.Channel> =>
     connection.createChannel();
 
-export const assertExchange = async (
+export const declareExchange = async (
     channel: amqplib.Channel,
     exchangeName: string,
     exchangeType: string,
@@ -21,11 +25,11 @@ export const assertExchange = async (
 ): Promise<amqplib.Replies.AssertExchange> =>
     channel.assertExchange(exchangeName, exchangeType, options);
 
-export const assertQueue = async (
+export const bindQueue = async (
     channel: amqplib.Channel,
     exchangeName: string,
-    queueName: string,
     routingKey: string,
+    queueName: string,
     options: amqplib.Options.AssertQueue,
 ): Promise<amqplib.Replies.AssertQueue> =>
     channel.assertQueue(queueName, options).then(reply =>
@@ -42,16 +46,20 @@ export const messagePublisher = (
 export const messageConsumer = (
     channel: amqplib.Channel,
     queueName: string,
-    handler: QueueTask,
+    handler: QueueHandler,
 ): void => {
+    const forward: MessagePublisher = (exchangeName: string, routingKey: string, message: MessageData) =>
+        messagePublisher(channel, exchangeName, routingKey)(message);
     channel.consume(
         queueName,
-        async (message: amqplib.ConsumeMessage) => {
-            try {
-                await handler(JSON.parse(message.content.toString()));
-                channel.ack(message);
-            } catch (e) {
-                channel.reject(message, false);
+        async (message: amqplib.ConsumeMessage | null) => {
+            if (message) {
+                try {
+                    await handler(JSON.parse(message.content.toString()), forward);
+                    channel.ack(message);
+                } catch (e) {
+                    channel.reject(message, false);
+                }
             }
         },
         {

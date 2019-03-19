@@ -1,48 +1,38 @@
 
 import { getEnv } from './getEnv';
 import { log } from 'console';
-import { createChannel, assertExchange, assertQueue, messageConsumer, messagePublisher, connect } from './broker';
+import { createChannel, messagePublisher, connect, QueueHandler } from './broker';
+import { BrokerDSL } from './brokerDSL';
 
 const brokerUrl = getEnv('MESSAGE_BROKER_URL');
 
-const listen = async () => {
-    try {
-        const connection = await connect(brokerUrl);
-        const channel = await createChannel(connection);
-
-        await assertExchange(channel, 'PUBLISHING', 'direct', { durable: true });
-        await assertQueue(channel, 'PUBLISHING', 'VALIDATE', 'update', { durable: true });
-
-        await assertExchange(channel, 'PROCESSING', 'direct', { durable: true });
-        await assertQueue(channel, 'PROCESSING', 'TO_PROCESS', 'process', { durable: true });
-
-        const pushUpdate = messagePublisher(channel, 'PUBLISHING', 'update');
-        const process = messagePublisher(channel, 'PROCESSING', 'process');
-
-        messageConsumer(channel, 'VALIDATE', async ({ id, hello }) => {
-            log('validating');
-            log(id, hello);
-            process({
-                id,
-                hello,
-                world: 'world',
-            });
-        });
-
-        messageConsumer(channel, 'TO_PROCESS', async ({ id, hello, world }) => {
-            log('processing');
-            log(id, hello, world);
-        });
-
-        pushUpdate({
-            id: 123,
-            hello: 'hello',
-        });
-
-    } catch (error) {
-        log(error);
-        process.exit(1);
-    }
+const validate: QueueHandler = async ({ id, hello }, forward) => {
+    log('validating');
+    log(id, hello);
+    forward('PROCESSING', 'process', {
+        id,
+        hello,
+        world: 'world',
+        isValid: true,
+    });
 };
 
-listen();
+BrokerDSL.configure(brokerUrl, (exchange) => {
+    exchange('PUBLISHING', { type: 'direct' }, (route) => {
+        route('update', (queue) => {
+            queue('validate', validate);
+            queue('debug', async msg => log(JSON.stringify(msg, null, 4)));
+            let count = 0;
+            queue('counter', { durable: true }, async () => log(`I have seen ${count += 1} messages!`));
+        });
+    });
+
+    exchange('PROCESSING', (route) => {
+        route('process', (queue) => {
+            queue('uploading', async ({ id, hello, world }) => {
+                log('processing');
+                log(id, hello, world);
+            });
+        });
+    });
+});

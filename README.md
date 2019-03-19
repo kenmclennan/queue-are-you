@@ -1,7 +1,7 @@
 # Objectives
 
-1. Manage connections & channels across
-2. standardise on async/await, try/catch
+1. -Manage connections & channels across queues-
+2. -standardise on async/await, try/catch-
 3. make routing configuration easy
 4. message handlers should be small functions
    1. should receive a message
@@ -13,6 +13,7 @@
 6. pub / sub not rpc
 7. testable
 8. readable
+9. observable
 
 
 Use cases
